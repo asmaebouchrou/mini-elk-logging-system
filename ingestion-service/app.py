@@ -1,6 +1,8 @@
 from flask import Flask
+from controllers.log_controller import log_blueprint
 
 app=Flask(__name__)
+app.register_blueprint(log_blueprint)
 
 @app.route("/")
 def health():
