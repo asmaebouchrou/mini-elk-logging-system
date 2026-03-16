@@ -1,0 +1,65 @@
+services:
+
+  elasticsearch:
+    image: elasticsearch:${ELASTIC_VERSION}
+    container_name: elasticsearch
+
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=false
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+
+    ports:
+      - "${ELASTIC_PORT}:9200"
+
+    volumes:
+      - elastic-data:/usr/share/elasticsearch/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200 | grep -q 'missing authentication credentials'"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+
+  kibana-setup:
+    image: elasticsearch:${ELASTIC_VERSION}
+    container_name: kibana-setup
+
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+    command:
+      - /bin/bash
+      - -c
+      - |
+        until curl -s -u "elastic:${ELASTIC_PASSWORD}" "http://elasticsearch:9200" > /dev/null; do
+          sleep 5
+        done
+
+        until curl -s -u "elastic:${ELASTIC_PASSWORD}" \
+          -H "Content-Type: application/json" \
+          -X POST "http://elasticsearch:9200/_security/user/kibana_system/_password" \
+          -d "{\"password\":\"${KIBANA_PASSWORD}\"}" | grep -q "^{}"; do
+          sleep 5
+        done
+
+  kibana:
+    image: kibana:${ELASTIC_VERSION}
+    container_name: kibana
+
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD}
+
+    ports:
+      - "${KIBANA_PORT}:5601"
+
+    depends_on:
+      kibana-setup:
+        condition: service_completed_successfully
+
+volumes:
+  elastic-data:
