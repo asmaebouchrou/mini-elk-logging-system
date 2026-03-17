@@ -47,3 +47,12 @@ services:
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
     ports:
       - "5001:5001"
+  
+  gateway:
+    build: ./gateway
+    container_name: gateway
+    ports:
+    - "80:80"
+    depends_on:
+    - ingestion-service
+    - search-service
